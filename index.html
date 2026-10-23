@@ -14,9 +14,15 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
+<script>
+/* aplica el tema guardado antes de pintar, para evitar un destello de color */
+try{var __t=JSON.parse(localStorage.getItem('glucosa.v1')).settings.theme;if(__t==='light'||__t==='dark')document.documentElement.setAttribute('data-theme',__t);}catch(e){}
+</script>
 <style>
 :root{--bg:#fff;--fg:#141414;--mut:#757575;--line:#e7e7e7;--band:rgba(0,0,0,.05);--acc:#b3261e;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#0d0d0d;--fg:#f0f0f0;--mut:#8c8c8c;--line:#272727;--band:rgba(255,255,255,.07);--acc:#ff7a70}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0d0d0d;--fg:#f0f0f0;--mut:#8c8c8c;--line:#272727;--band:rgba(255,255,255,.07);--acc:#ff7a70}}
+:root[data-theme=dark]{--bg:#0d0d0d;--fg:#f0f0f0;--mut:#8c8c8c;--line:#272727;--band:rgba(255,255,255,.07);--acc:#ff7a70;color-scheme:dark}
+:root[data-theme=light]{color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;touch-action:manipulation}
@@ -174,7 +180,7 @@ const DIA3=['dom','lun','mar','mié','jue','vie','sáb'];
 const CTX=[['ayunas','En ayunas'],['antes','Antes de comer'],['despues','Después de comer'],['dormir','Al acostarse'],['otro','Otro']];
 const CTXL=Object.fromEntries(CTX);
 const MGDL_PER_MMOL=18.016;
-const DEF={unit:'mgdl',low:70,high:180,name:'',hint:0};
+const DEF={unit:'mgdl',low:70,high:180,name:'',hint:0,theme:'auto'};
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -247,6 +253,17 @@ function byContext(list){
     out.push({label:l,n:a.length,mean:a.reduce((p,q)=>p+q,0)/a.length,min:Math.min(...a),max:Math.max(...a)});
   });
   return out;
+}
+
+/* ───────── tema (automático, claro u oscuro) ───────── */
+function applyTheme(){
+  const t=state.settings.theme,root=document.documentElement;
+  if(t==='light'||t==='dark')root.setAttribute('data-theme',t);else root.removeAttribute('data-theme');
+  const metas=$$('meta[name=theme-color]');
+  if(metas.length===2){
+    if(t==='light'||t==='dark'){const c=t==='dark'?'#0d0d0d':'#ffffff';metas.forEach(m=>m.setAttribute('content',c));}
+    else{metas[0].setAttribute('content','#ffffff');metas[1].setAttribute('content','#0d0d0d');}
+  }
 }
 
 /* ───────── avisos y hojas ───────── */
@@ -567,7 +584,9 @@ function renderHistorial(){
 function renderAjustes(){
   const s=state.settings;
   $('#sBox').innerHTML=
-    '<h2 style="margin-top:6px">Unidad</h2>'+
+    '<h2 style="margin-top:6px">Tema</h2>'+
+    '<div class="seg" id="sTheme"><button type="button" data-t="auto" class="'+(s.theme!=='light'&&s.theme!=='dark'?'on':'')+'">Automático</button><button type="button" data-t="light" class="'+(s.theme==='light'?'on':'')+'">Claro</button><button type="button" data-t="dark" class="'+(s.theme==='dark'?'on':'')+'">Oscuro</button></div>'+
+    '<h2>Unidad</h2>'+
     '<div class="seg" id="sUnit"><button type="button" data-u="mgdl" class="'+(!isMmol()?'on':'')+'">mg/dL</button><button type="button" data-u="mmol" class="'+(isMmol()?'on':'')+'">mmol/L</button></div>'+
     '<h2>Rango objetivo ('+unitLabel()+')</h2>'+
     '<div class="two"><label class="fld" style="margin-top:0"><span>Mínimo</span><input id="sLow" inputmode="decimal" value="'+fmtInput(s.low)+'"></label>'+
@@ -586,6 +605,10 @@ function renderAjustes(){
     '<h2>Aviso</h2>'+
     '<p class="note l">Esta app es un registro personal. No es un dispositivo médico ni reemplaza las indicaciones de tu equipo de salud.</p>';
 
+  $$('#sTheme button').forEach(b=>b.addEventListener('click',()=>{
+    state.settings.theme=b.dataset.t;save();applyTheme();
+    $$('#sTheme button').forEach(x=>x.classList.toggle('on',x===b));
+  }));
   $$('#sUnit button').forEach(b=>b.addEventListener('click',()=>{
     state.settings.unit=b.dataset.u;save();formReg.reset();sel=-1;renderAjustes();toast('Unidad: '+unitLabel());
   }));
@@ -757,6 +780,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='r
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+applyTheme();
 render();
 window.__glucosa={state:()=>state,show:show,render:render};
 })();
