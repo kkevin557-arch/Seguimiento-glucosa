@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Glucosa</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glucosa">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{--bg:#fff;--fg:#141414;--mut:#757575;--line:#e7e7e7;--band:rgba(0,0,0,.05);--acc:#b3261e;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#0d0d0d;--fg:#f0f0f0;--mut:#8c8c8c;--line:#272727;--band:rgba(255,255,255,.07);--acc:#ff7a70}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;touch-action:manipulation}
+.app{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 22px) 20px calc(92px + env(safe-area-inset-bottom))}
+h1{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0 0 18px}
+h2{font-size:12px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin:30px 0 8px}
+p{margin:0}
+.view{display:none}.view.on{display:block}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+a{color:inherit}
+input,select{font:inherit;font-size:16px;color:var(--fg);background:transparent;outline:none}
+input:not([type=file]){width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:9px 0;-webkit-appearance:none;appearance:none}
+input:focus{border-bottom-color:var(--fg)}
+input[type=date],input[type=datetime-local]{min-height:42px;text-align:left}
+::-webkit-date-and-time-value{text-align:left}
+select{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+
+/* formulario */
+.valor{display:flex;align-items:baseline;justify-content:center;gap:10px;padding:14px 0 12px;border-bottom:1px solid var(--line)}
+.valor input{font-size:64px;font-weight:200;width:4.4ch;text-align:center;border:0;padding:0;letter-spacing:-.02em}
+.valor .f-u{color:var(--mut);font-size:16px}
+.fld{display:block;margin-top:22px}
+.fld>span{display:block;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;color:var(--mut)}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.btn{display:block;width:100%;height:50px;line-height:50px;border-radius:12px;background:var(--fg);color:var(--bg);font-weight:500;text-align:center;text-decoration:none;margin-top:26px}
+.btn.sec{background:transparent;color:var(--fg);border:1px solid var(--line);line-height:48px}
+.btn.dng{background:transparent;color:var(--acc);border:1px solid var(--line);line-height:48px}
+.btn+.btn{margin-top:10px}
+
+/* listas */
+.list{list-style:none;margin:0;padding:0}
+.li{display:grid;grid-template-columns:auto 1fr auto;column-gap:14px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.li .tm{color:var(--mut);font-size:14px;font-variant-numeric:tabular-nums;min-width:48px}
+.li .vl{font-size:20px;font-variant-numeric:tabular-nums}
+.li .vl small{font-size:12px;color:var(--mut)}
+.li .vl.out,.li .vl.out small,.out{color:var(--acc)}
+.li .cx{font-size:13px;color:var(--mut);text-align:right}
+.li .nt{grid-column:2/4;font-size:13px;color:var(--mut)}
+.dayh{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin:24px 0 0}
+.note{font-size:13px;color:var(--mut);text-align:center}
+.note.l{text-align:left;margin-top:8px}
+.hint{border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--mut);margin-bottom:18px}
+.hint button{display:block;margin-top:8px;color:var(--fg);font-weight:500;font-size:14px}
+
+/* gráficos */
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;padding:9px 0;font-size:15px;color:var(--mut)}
+.seg button.on{background:var(--fg);color:var(--bg)}
+#v-graficos .seg{margin-bottom:12px}
+.pn{display:flex;align-items:center;justify-content:space-between}
+.pn button{width:44px;height:44px;font-size:28px;font-weight:300;line-height:1}
+.pn button:disabled{opacity:.2}
+.pn .lbl{flex:1;text-align:center;font-size:16px;font-weight:600;line-height:1.25}
+.pick{display:flex;gap:10px;justify-content:center;align-items:center;margin:2px 0 12px}
+.pick input{width:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-height:38px}
+.cw{width:100%}
+#cv{width:100%;display:block}
+.ro{min-height:22px;font-size:14px;color:var(--mut);text-align:center;margin:6px 0 2px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px 8px;margin:18px 0 10px;text-align:center}
+.st b{display:block;font-size:30px;font-weight:300;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.st span{font-size:12px;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th{font-weight:500;color:var(--mut);font-size:12px;text-align:right;padding:6px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 0;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+
+/* ajustes */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.steps{font-size:14px;color:var(--mut);padding-left:18px;margin:0}
+.steps li{margin:4px 0}
+
+/* barra inferior */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}
+nav.tabs .in{display:flex;max-width:560px;margin:0 auto}
+nav.tabs button{flex:1;padding:15px 0 13px;font-size:13px;color:var(--mut);position:relative}
+nav.tabs button.on{color:var(--fg);font-weight:600}
+nav.tabs button.on::after{content:"";position:absolute;top:-1px;left:28%;right:28%;height:2px;background:var(--fg)}
+
+/* hoja modal y aviso */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--bg);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:22px 20px calc(24px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+.toast{position:fixed;left:50%;bottom:calc(78px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:14px;font-size:14px;z-index:30;max-width:90%;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<main class="app">
+
+  <section id="v-registrar" class="view on">
+    <h1>Nueva medición</h1>
+    <div id="hint" class="hint" hidden>
+      Para instalarla en el iPhone: toca Compartir y luego «Agregar a inicio». Hazlo antes de registrar datos: lo guardado desde Safari y lo guardado en la app instalada no se comparten.
+      <button id="hintX" type="button">Entendido</button>
+    </div>
+    <div id="formReg"></div>
+    <h2>Últimas mediciones</h2>
+    <ul id="recent" class="list"></ul>
+  </section>
+
+  <section id="v-graficos" class="view">
+    <h1>Gráficos</h1>
+    <div class="seg" id="gSeg">
+      <button data-m="dia" type="button">Día</button>
+      <button data-m="semana" type="button">Semana</button>
+      <button data-m="mes" type="button">Mes</button>
+    </div>
+    <div class="pn">
+      <button id="gPrev" type="button" aria-label="Periodo anterior">‹</button>
+      <div class="lbl" id="gLbl"></div>
+      <button id="gNext" type="button" aria-label="Periodo siguiente">›</button>
+    </div>
+    <div class="pick" id="gPick"></div>
+    <div class="cw"><canvas id="cv" role="img" aria-label="Gráfico de glucosa del periodo seleccionado"></canvas></div>
+    <div class="ro" id="gRead"></div>
+    <div id="gStats"></div>
+    <div id="gExtra"></div>
+    <button class="btn" id="btnPdf" type="button" style="display:none">Exportar este mes a PDF</button>
+  </section>
+
+  <section id="v-historial" class="view">
+    <h1>Historial</h1>
+    <div id="hList"></div>
+    <div id="hMore"></div>
+  </section>
+
+  <section id="v-ajustes" class="view">
+    <h1>Ajustes</h1>
+    <div id="sBox"></div>
+  </section>
+
+</main>
+
+<nav class="tabs" aria-label="Secciones"><div class="in">
+  <button type="button" data-v="registrar" class="on">Registrar</button>
+  <button type="button" data-v="graficos">Gráficos</button>
+  <button type="button" data-v="historial">Historial</button>
+  <button type="button" data-v="ajustes">Ajustes</button>
+</div></nav>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="jspdf.umd.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ───────── utilidades y constantes ───────── */
+const KEY='glucosa.v1';
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MES3=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const DIA3=['dom','lun','mar','mié','jue','vie','sáb'];
+const CTX=[['ayunas','En ayunas'],['antes','Antes de comer'],['despues','Después de comer'],['dormir','Al acostarse'],['otro','Otro']];
+const CTXL=Object.fromEntries(CTX);
+const MGDL_PER_MMOL=18.016;
+const DEF={unit:'mgdl',low:70,high:180,name:'',hint:0};
+
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const pad=n=>String(n).padStart(2,'0');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+const sod=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x;};
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+const weekStart=d=>{const x=sod(d);return addD(x,-((x.getDay()+6)%7));};
+const monthStart=d=>new Date(d.getFullYear(),d.getMonth(),1);
+const dim=(y,m)=>new Date(y,m+1,0).getDate();
+const addM=(d,n)=>{const y=d.getFullYear(),m=d.getMonth()+n;const t=new Date(y,m,1);return new Date(t.getFullYear(),t.getMonth(),Math.min(d.getDate(),dim(t.getFullYear(),t.getMonth())));};
+const hhmm=ts=>{const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes());};
+const dstr=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const toLocalInput=ts=>dstr(new Date(ts))+'T'+hhmm(ts);
+const shortDay=d=>DIA3[d.getDay()]+' '+d.getDate()+' '+MES3[d.getMonth()];
+
+/* ───────── datos ───────── */
+let state=load();
+function load(){
+  try{
+    const r=localStorage.getItem(KEY);
+    if(r){const s=JSON.parse(r);return {entries:Array.isArray(s.entries)?s.entries:[],settings:Object.assign({},DEF,s.settings||{})};}
+  }catch(e){}
+  return {entries:[],settings:Object.assign({},DEF)};
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(state));return true;}
+  catch(e){toast('No se pudo guardar en el teléfono');return false;}
+}
+
+/* ───────── unidades ───────── */
+const isMmol=()=>state.settings.unit==='mmol';
+const toDisp=v=>isMmol()?v/MGDL_PER_MMOL:v;
+const fromDisp=x=>isMmol()?x*MGDL_PER_MMOL:x;
+const unitLabel=()=>isMmol()?'mmol/L':'mg/dL';
+const fmtV=v=>isMmol()?(v/MGDL_PER_MMOL).toFixed(1).replace('.',','):String(Math.round(v));
+const fmtInput=v=>fmtV(v);
+const parseNum=s=>parseFloat(String(s).replace(',','.'));
+const stateOf=v=>v<state.settings.low?'bajo':v>state.settings.high?'alto':'';
+
+/* ───────── consultas y estadísticas ───────── */
+const inRange=(a,b)=>state.entries.filter(e=>e.t>=a&&e.t<b).sort((x,y)=>x.t-y.t);
+function stats(list){
+  const n=list.length;if(!n)return {n:0};
+  const vs=list.map(e=>e.v),mean=vs.reduce((a,b)=>a+b,0)/n;
+  const sd=Math.sqrt(vs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n);
+  const lo=state.settings.low,hi=state.settings.high;
+  const below=vs.filter(v=>v<lo).length,above=vs.filter(v=>v>hi).length;
+  return {n,mean,sd,min:Math.min(...vs),max:Math.max(...vs),below,above,inr:n-below-above};
+}
+function groupByDay(list){
+  const m=new Map();
+  list.forEach(e=>{const k=dstr(new Date(e.t));if(!m.has(k))m.set(k,[]);m.get(k).push(e);});
+  return Array.from(m.entries()).map(([k,a])=>{
+    const vs=a.map(e=>e.v);
+    return {k,date:new Date(a[0].t),n:a.length,mean:vs.reduce((p,q)=>p+q,0)/a.length,min:Math.min(...vs),max:Math.max(...vs)};
+  });
+}
+function byContext(list){
+  const m={};
+  list.forEach(e=>{const k=e.ctx||'';(m[k]=m[k]||[]).push(e.v);});
+  const any=Object.keys(m).some(k=>k!=='');
+  if(!any)return [];
+  const out=[];
+  CTX.concat([['','Sin indicar']]).forEach(([k,l])=>{
+    const a=m[k];if(!a)return;
+    out.push({label:l,n:a.length,mean:a.reduce((p,q)=>p+q,0)/a.length,min:Math.min(...a),max:Math.max(...a)});
+  });
+  return out;
+}
+
+/* ───────── avisos y hojas ───────── */
+let toastTimer;
+function toast(msg,ms){
+  const t=$('#toast');t.textContent=msg;t.classList.add('on');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),ms||2400);
+}
+function closeSheet(){$$('.ov').forEach(x=>x.remove());}
+function openSheet(build){
+  closeSheet();
+  const ov=document.createElement('div');ov.className='ov';ov.innerHTML='<div class="sheet"></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',ev=>{if(ev.target===ov)closeSheet();});
+  build($('.sheet',ov));
+}
+
+/* ───────── formulario de medición (se reutiliza para registrar y editar) ───────── */
+function makeForm(root,opt){
+  const e=opt.entry;
+  root.innerHTML=
+    '<div class="valor"><input class="f-v" type="text" inputmode="decimal" autocomplete="off" aria-label="Nivel de glucosa"><span class="f-u"></span></div>'+
+    '<label class="fld"><span>Fecha y hora</span><input class="f-t" type="datetime-local"></label>'+
+    '<div class="fld"><span>Momento (opcional)</span><div class="chips f-c"></div></div>'+
+    '<label class="fld"><span>Nota (opcional)</span><input class="f-n" type="text" maxlength="120" placeholder="Ej: después de caminar"></label>'+
+    '<button type="button" class="btn f-s"></button>'+
+    (opt.onDelete?'<button type="button" class="btn dng f-d">Eliminar medición</button>':'');
+  const iv=$('.f-v',root),it=$('.f-t',root),inn=$('.f-n',root),chips=$('.f-c',root),btn=$('.f-s',root),uEl=$('.f-u',root);
+  let ctx='',touched=false;
+  chips.innerHTML=CTX.map(c=>'<button type="button" class="chip" data-k="'+c[0]+'">'+c[1]+'</button>').join('');
+  const paint=()=>$$('.chip',chips).forEach(c=>c.classList.toggle('on',c.dataset.k===ctx));
+  chips.addEventListener('click',ev=>{const c=ev.target.closest('.chip');if(!c)return;ctx=ctx===c.dataset.k?'':c.dataset.k;paint();});
+  it.addEventListener('input',()=>{touched=true;});
+  function refresh(){
+    uEl.textContent=unitLabel();iv.placeholder=isMmol()?'0,0':'0';
+    if(!touched&&!e)it.value=toLocalInput(Date.now());
+  }
+  function fill(){
+    if(e){iv.value=fmtInput(e.v);it.value=toLocalInput(e.t);inn.value=e.note||'';ctx=e.ctx||'';touched=true;}
+    else{iv.value='';inn.value='';ctx='';touched=false;it.value=toLocalInput(Date.now());}
+    paint();refresh();
+  }
+  btn.textContent=opt.submitLabel;
+  btn.addEventListener('click',()=>{
+    const x=parseNum(iv.value);
+    if(!isFinite(x)){toast('Ingresa el valor de glucosa');iv.focus();return;}
+    const v=Math.round(fromDisp(x)*100)/100;
+    if(v<20||v>600){toast('Valor fuera de rango (20 a 600 mg/dL)');return;}
+    const t=new Date(it.value).getTime();
+    if(!isFinite(t)){toast('Indica la fecha y la hora');return;}
+    if(t>Date.now()+5*60000){toast('La fecha y la hora no pueden ser futuras');return;}
+    opt.onSubmit({v,t,ctx,note:inn.value.trim()},fill);
+  });
+  const del=$('.f-d',root);if(del)del.addEventListener('click',opt.onDelete);
+  fill();
+  return {refresh,reset:fill};
+}
+
+/* ───────── gráfico (canvas) ───────── */
+function niceStep(range,maxT){
+  const raw=range/maxT,mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  for(const m of [1,2,5,10]){if(m*mag>=raw-1e-12)return m*mag;}
+  return 10*mag;
+}
+const tickFmt=v=>Math.abs(v-Math.round(v))<1e-6?String(Math.round(v)):v.toFixed(1).replace('.',',');
+
+function drawChart(cv,o){
+  const dpr=o.dpr||1,W=o.w,H=o.h,fs=o.fs||11,sc=o.sc||1,C=o.colors;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  if(o.bg){g.fillStyle=o.bg;g.fillRect(0,0,W,H);}
+  const conv=toDisp,lowD=conv(o.low),highD=conv(o.high);
+  const s=o.start.getTime(),e=o.end.getTime();
+  const mes=o.mode==='mes';
+  let pts=[],days=[],N=0;
+  if(mes){
+    N=dim(o.start.getFullYear(),o.start.getMonth());
+    const b=Array.from({length:N},()=>[]);
+    o.list.forEach(x=>b[new Date(x.t).getDate()-1].push(x.v));
+    b.forEach((a,i)=>{if(a.length)days.push({i:i,n:a.length,mean:a.reduce((p,q)=>p+q,0)/a.length,min:Math.min(...a),max:Math.max(...a)});});
+  }else pts=o.list.map(x=>({t:x.t,v:x.v,e:x}));
+  const ys=[];
+  if(mes)days.forEach(d=>{ys.push(conv(d.min),conv(d.max));});else pts.forEach(p=>ys.push(conv(p.v)));
+  const lo=Math.min(lowD,...ys),hi=Math.max(highD,...ys),padY=(hi-lo)*0.12;
+  const step=niceStep(hi-lo+2*padY,5);
+  const yMin=Math.max(0,Math.floor((lo-padY)/step+1e-9)*step),yMax=Math.ceil((hi+padY)/step-1e-9)*step;
+  const L=Math.round(fs*3.6),R=Math.round(fs*1.1),T=Math.round(fs*1.4),B=Math.round(fs*2.4);
+  const pw=W-L-R,ph=H-T-B;
+  const Y=v=>T+ph-(v-yMin)/(yMax-yMin)*ph;
+  const font='px -apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif';
+
+  // franja del rango objetivo
+  const yh=Math.max(T,Y(highD)),yl=Math.min(T+ph,Y(lowD));
+  g.fillStyle=C.band;g.fillRect(L,yh,pw,Math.max(0,yl-yh));
+
+  // eje Y
+  g.font=fs+font;g.lineWidth=1;g.textBaseline='middle';g.textAlign='right';
+  const nT=Math.round((yMax-yMin)/step);
+  for(let i=0;i<=nT;i++){
+    const v=yMin+i*step,y=Math.round(Y(v))+.5;
+    g.strokeStyle=C.line;g.beginPath();g.moveTo(L,y);g.lineTo(L+pw,y);g.stroke();
+    g.fillStyle=C.mut;g.fillText(tickFmt(v),L-6,y);
+  }
+
+  // eje X
+  g.textBaseline='top';g.textAlign='center';g.fillStyle=C.mut;
+  const ly=T+ph+Math.round(fs*.6);
+  if(o.mode==='dia'){
+    for(let h=0;h<=24;h+=3){
+      const x=Math.round(L+pw*h/24)+.5;
+      if(h>0&&h<24){g.strokeStyle=C.line;g.beginPath();g.moveTo(x,T);g.lineTo(x,T+ph);g.stroke();}
+      g.fillStyle=C.mut;g.fillText(pad(h),x,ly);
+    }
+  }else if(o.mode==='semana'){
+    for(let i=0;i<=7;i++){
+      const x=Math.round(L+pw*i/7)+.5;
+      if(i>0&&i<7){g.strokeStyle=C.line;g.beginPath();g.moveTo(x,T);g.lineTo(x,T+ph);g.stroke();}
+      if(i<7){const d=addD(o.start,i);g.fillStyle=C.mut;g.fillText(DIA3[d.getDay()]+' '+d.getDate(),L+pw*(i+.5)/7,ly);}
+    }
+  }else{
+    for(let i=0;i<N;i++){const dn=i+1;if(dn===1||dn%5===0){g.fillStyle=C.mut;g.fillText(String(dn),L+pw*(i+.5)/N,ly);}}
+  }
+
+  const hits=[];
+  const unit=unitLabel();
+  if(!o.list.length){
+    g.fillStyle=C.mut;g.textAlign='center';g.textBaseline='middle';
+    g.fillText('Sin mediciones en este periodo',L+pw/2,T+ph/2);
+    return hits;
+  }
+
+  if(!mes){
+    const X=t=>L+pw*Math.min(1,Math.max(0,(t-s)/(e-s)));
+    pts.forEach(p=>{p.x=X(p.t);p.y=Y(conv(p.v));});
+    const gap=o.mode==='semana'?10*3600000:Infinity;
+    g.strokeStyle=C.fg;g.globalAlpha=.45;g.lineWidth=1.5*sc;g.lineJoin='round';g.beginPath();
+    pts.forEach((p,i)=>{if(i>0&&p.t-pts[i-1].t<=gap)g.lineTo(p.x,p.y);else g.moveTo(p.x,p.y);});
+    g.stroke();g.globalAlpha=1;
+    pts.forEach((p,i)=>{
+      const out=p.v<o.low||p.v>o.high,on=i===o.sel;
+      g.beginPath();g.arc(p.x,p.y,(on?5:3.5)*sc,0,Math.PI*2);g.fillStyle=out?C.acc:C.fg;g.fill();
+      if(on){g.lineWidth=1.5*sc;g.strokeStyle=C.fg;g.beginPath();g.arc(p.x,p.y,8.5*sc,0,Math.PI*2);g.stroke();}
+      const d=new Date(p.t);
+      hits.push({x:p.x,y:p.y,info:shortDay(d)+' · '+hhmm(p.t)+' · '+fmtV(p.v)+' '+unit+(p.e.ctx?' · '+CTXL[p.e.ctx]:'')});
+    });
+    if(o.mode==='dia'&&pts.length<=10){
+      g.font=fs+font;g.textAlign='center';g.fillStyle=C.fg;
+      pts.forEach(p=>{const above=p.y-14>=T;g.textBaseline=above?'bottom':'top';g.fillText(fmtV(p.v),p.x,above?p.y-8*sc:p.y+8*sc);});
+    }
+  }else{
+    const X2=i=>L+pw*(i+.5)/N;
+    days.forEach(d=>{d.x=X2(d.i);d.y=Y(conv(d.mean));d.y1=Y(conv(d.min));d.y2=Y(conv(d.max));});
+    g.strokeStyle=C.mut;g.globalAlpha=.7;g.lineWidth=1.5*sc;
+    days.forEach(d=>{g.beginPath();g.moveTo(d.x,d.y1);g.lineTo(d.x,d.y2);g.stroke();});
+    g.globalAlpha=.45;g.strokeStyle=C.fg;g.beginPath();
+    days.forEach((d,i)=>{if(i>0&&d.i-days[i-1].i<=2)g.lineTo(d.x,d.y);else g.moveTo(d.x,d.y);});
+    g.stroke();g.globalAlpha=1;
+    days.forEach((d,i)=>{
+      const out=d.mean<o.low||d.mean>o.high,on=i===o.sel;
+      g.beginPath();g.arc(d.x,d.y,(on?5:3.5)*sc,0,Math.PI*2);g.fillStyle=out?C.acc:C.fg;g.fill();
+      if(on){g.lineWidth=1.5*sc;g.strokeStyle=C.fg;g.beginPath();g.arc(d.x,d.y,8.5*sc,0,Math.PI*2);g.stroke();}
+      hits.push({x:d.x,y:d.y,info:'Día '+(d.i+1)+' · prom. '+fmtV(d.mean)+' · mín '+fmtV(d.min)+' · máx '+fmtV(d.max)+' · '+d.n+' '+(d.n===1?'medición':'mediciones')});
+    });
+  }
+  return hits;
+}
+
+/* ───────── pantalla Registrar ───────── */
+let formReg;
+function dayLabel(t){
+  const d=new Date(t),td=sod(new Date());
+  if(sod(d).getTime()===td.getTime())return 'Hoy';
+  if(sod(d).getTime()===addD(td,-1).getTime())return 'Ayer';
+  return d.getDate()+' '+MES3[d.getMonth()];
+}
+function rowHTML(e,dl){
+  const st=stateOf(e.v);
+  return '<li class="li" data-id="'+esc(e.id)+'"><span class="tm">'+(dl?esc(dl)+' · ':'')+hhmm(e.t)+'</span>'+
+    '<span class="vl'+(st?' out':'')+'">'+fmtV(e.v)+' <small>'+unitLabel()+'</small>'+(st?' <small>'+st+'</small>':'')+'</span>'+
+    '<span class="cx">'+(e.ctx?esc(CTXL[e.ctx]||''):'')+'</span>'+
+    (e.note?'<span class="nt">'+esc(e.note)+'</span>':'')+'</li>';
+}
+function renderRegistrar(){
+  formReg.refresh();
+  const rec=[...state.entries].sort((a,b)=>b.t-a.t).slice(0,5);
+  $('#recent').innerHTML=rec.length?rec.map(e=>rowHTML(e,dayLabel(e.t))).join(''):'<li class="note" style="padding:14px 0;text-align:left">Aún no hay mediciones. Registra la primera arriba.</li>';
+  const standalone=navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+  $('#hint').hidden=!( /iphone|ipad|ipod/i.test(navigator.userAgent)&&!standalone&&!state.settings.hint );
+}
+function addEntry(d,done){
+  state.entries.push({id:uid(),t:d.t,v:d.v,ctx:d.ctx,note:d.note});
+  if(!save()){state.entries.pop();return;}
+  done();
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
+  let m='Guardado · '+fmtV(d.v)+' '+unitLabel();
+  const st=stateOf(d.v);
+  m+=' ('+(st==='bajo'?'bajo el rango':st==='alto'?'sobre el rango':'en rango')+')';
+  let long=false;
+  if(d.v<54){m+='. Valor muy bajo: sigue las indicaciones de tu médico';long=true;}
+  else if(d.v>300){m+='. Valor muy alto: sigue las indicaciones de tu médico';long=true;}
+  toast(m,long?5000:2600);
+  renderRegistrar();
+}
+function openEdit(id){
+  const e=state.entries.find(x=>x.id===id);if(!e)return;
+  openSheet(root=>{
+    root.innerHTML='<h1>Editar medición</h1><div class="ef"></div>';
+    makeForm($('.ef',root),{
+      entry:e,submitLabel:'Guardar cambios',
+      onSubmit:d=>{const bak=Object.assign({},e);Object.assign(e,d);if(!save()){Object.assign(e,bak);return;}closeSheet();render();toast('Medición actualizada');},
+      onDelete:()=>{if(confirm('¿Eliminar esta medición?')){state.entries=state.entries.filter(x=>x.id!==id);save();closeSheet();render();toast('Medición eliminada');}}
+    });
+  });
+}
+
+/* ───────── pantalla Gráficos ───────── */
+let gmode='dia',cursor=new Date(),sel=-1,lastHits=[];
+function clampCursor(){if(cursor.getTime()>Date.now())cursor=new Date();}
+function periodBounds(){
+  if(gmode==='dia'){const s=sod(cursor);return [s,addD(s,1)];}
+  if(gmode==='semana'){const s=weekStart(cursor);return [s,addD(s,7)];}
+  const s=monthStart(cursor);return [s,new Date(s.getFullYear(),s.getMonth()+1,1)];
+}
+function periodLabel(s,e){
+  if(gmode==='dia')return cap(DIAS[s.getDay()])+' '+s.getDate()+' '+MES3[s.getMonth()]+' '+s.getFullYear();
+  if(gmode==='mes')return cap(MESES[s.getMonth()])+' '+s.getFullYear();
+  const f=addD(e,-1);
+  return s.getDate()+(s.getMonth()!==f.getMonth()?' '+MES3[s.getMonth()]:'')+' – '+f.getDate()+' '+MES3[f.getMonth()]+' '+f.getFullYear();
+}
+function screenColors(){
+  const cs=getComputedStyle(document.documentElement),v=n=>cs.getPropertyValue(n).trim();
+  return {fg:v('--fg'),mut:v('--mut'),line:v('--line'),band:v('--band'),acc:v('--acc')};
+}
+function renderPick(){
+  const p=$('#gPick');
+  if(gmode==='mes'){
+    const cy=new Date().getFullYear(),miny=state.entries.length?new Date(Math.min(...state.entries.map(e=>e.t))).getFullYear():cy;
+    let ys='';for(let y=Math.min(miny,cy-1);y<=cy;y++)ys+='<option value="'+y+'"'+(y===cursor.getFullYear()?' selected':'')+'>'+y+'</option>';
+    p.innerHTML='<select id="gM" aria-label="Mes">'+MESES.map((m,i)=>'<option value="'+i+'"'+(i===cursor.getMonth()?' selected':'')+'>'+cap(m)+'</option>').join('')+'</select><select id="gY" aria-label="Año">'+ys+'</select>';
+    const ch=()=>{const y=+$('#gY').value,m=+$('#gM').value;cursor=new Date(y,m,Math.min(cursor.getDate(),dim(y,m)));clampCursor();sel=-1;renderGraficos();};
+    $('#gM').addEventListener('change',ch);$('#gY').addEventListener('change',ch);
+  }else{
+    p.innerHTML='<input type="date" id="gD" value="'+dstr(cursor)+'" max="'+dstr(new Date())+'" aria-label="Elegir fecha">';
+    $('#gD').addEventListener('change',ev=>{if(!ev.target.value)return;cursor=new Date(ev.target.value+'T12:00:00');clampCursor();sel=-1;renderGraficos();});
+  }
+}
+function shift(n){
+  if(gmode==='dia')cursor=addD(cursor,n);else if(gmode==='semana')cursor=addD(cursor,7*n);else cursor=addM(cursor,n);
+  clampCursor();sel=-1;renderGraficos();
+}
+function drawNow(){
+  const cv=$('#cv'),w=Math.max(280,cv.parentElement.clientWidth),h=w>480?300:260;
+  cv.style.height=h+'px';
+  const [s,e]=periodBounds(),list=inRange(s.getTime(),e.getTime());
+  lastHits=drawChart(cv,{mode:gmode,list:list,start:s,end:e,low:state.settings.low,high:state.settings.high,w:w,h:h,dpr:window.devicePixelRatio||1,fs:11,sc:1,colors:screenColors(),sel:sel});
+  $('#gRead').textContent=!list.length?'':(sel>=0&&lastHits[sel]?lastHits[sel].info:'Toca un punto para ver el detalle');
+  return list;
+}
+function statsHTML(list){
+  const st=stats(list);
+  if(!st.n)return '<p class="note" style="margin:22px 0">Sin mediciones en este periodo.</p>';
+  const pc=x=>Math.round(100*x/st.n)+'%';
+  return '<div class="stats">'+
+    '<div class="st"><b>'+fmtV(st.mean)+'</b><span>Promedio</span></div>'+
+    '<div class="st"><b>'+fmtV(st.min)+'</b><span>Mínimo</span></div>'+
+    '<div class="st"><b>'+fmtV(st.max)+'</b><span>Máximo</span></div>'+
+    '<div class="st"><b>'+pc(st.inr)+'</b><span>En rango</span></div>'+
+    '<div class="st"><b>'+pc(st.below)+'</b><span>Bajo</span></div>'+
+    '<div class="st"><b>'+pc(st.above)+'</b><span>Sobre</span></div></div>'+
+    '<p class="note">'+st.n+' '+(st.n===1?'medición':'mediciones')+' · '+unitLabel()+' · desv. est. '+fmtV(st.sd)+'<br>Rango objetivo '+fmtV(state.settings.low)+' a '+fmtV(state.settings.high)+'</p>';
+}
+function extraHTML(list){
+  if(!list.length)return '';
+  const lo=state.settings.low,hi=state.settings.high;
+  let h='';
+  if(gmode==='dia'){
+    h+='<h2>Mediciones del día</h2><ul class="list">'+list.map(e=>rowHTML(e)).join('')+'</ul>';
+  }else{
+    h+='<h2>Resumen diario</h2><table><thead><tr><th>Día</th><th>N.º</th><th>Prom.</th><th>Mín.</th><th>Máx.</th></tr></thead><tbody>'+
+      groupByDay(list).map(d=>'<tr><td>'+esc(shortDay(d.date))+'</td><td>'+d.n+'</td><td class="'+(d.mean<lo||d.mean>hi?'out':'')+'">'+fmtV(d.mean)+'</td><td class="'+(d.min<lo?'out':'')+'">'+fmtV(d.min)+'</td><td class="'+(d.max>hi?'out':'')+'">'+fmtV(d.max)+'</td></tr>').join('')+'</tbody></table>';
+  }
+  const bc=byContext(list);
+  if(bc.length&&gmode!=='dia'){
+    h+='<h2>Por momento</h2><table><thead><tr><th>Momento</th><th>N.º</th><th>Prom.</th><th>Mín.</th><th>Máx.</th></tr></thead><tbody>'+
+      bc.map(r=>'<tr><td>'+esc(r.label)+'</td><td>'+r.n+'</td><td class="'+(r.mean<lo||r.mean>hi?'out':'')+'">'+fmtV(r.mean)+'</td><td>'+fmtV(r.min)+'</td><td>'+fmtV(r.max)+'</td></tr>').join('')+'</tbody></table>';
+  }
+  return h;
+}
+function renderGraficos(){
+  $$('#gSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===gmode));
+  const [s,e]=periodBounds();
+  $('#gLbl').textContent=periodLabel(s,e);
+  $('#gNext').disabled=e.getTime()>Date.now();
+  renderPick();
+  const list=drawNow();
+  $('#gStats').innerHTML=statsHTML(list);
+  $('#gExtra').innerHTML=extraHTML(list);
+  $('#btnPdf').style.display=gmode==='mes'?'block':'none';
+}
+
+/* ───────── pantalla Historial ───────── */
+let histLimit=300;
+function renderHistorial(){
+  const all=[...state.entries].sort((a,b)=>b.t-a.t);
+  if(!all.length){$('#hList').innerHTML='<p class="note" style="text-align:left">Aún no hay mediciones.</p>';$('#hMore').innerHTML='';return;}
+  let html='',cur='';
+  all.slice(0,histLimit).forEach(e=>{
+    const d=new Date(e.t),k=dstr(d);
+    if(k!==cur){if(cur)html+='</ul>';cur=k;html+='<div class="dayh">'+cap(DIAS[d.getDay()])+' '+d.getDate()+' '+MES3[d.getMonth()]+' '+d.getFullYear()+'</div><ul class="list">';}
+    html+=rowHTML(e);
+  });
+  $('#hList').innerHTML=html+'</ul>';
+  $('#hMore').innerHTML=all.length>histLimit?'<button class="btn sec" id="hMoreBtn" type="button">Ver más</button>':'';
+  const mb=$('#hMoreBtn');if(mb)mb.addEventListener('click',()=>{histLimit+=300;renderHistorial();});
+}
+
+/* ───────── pantalla Ajustes ───────── */
+function renderAjustes(){
+  const s=state.settings;
+  $('#sBox').innerHTML=
+    '<h2 style="margin-top:6px">Unidad</h2>'+
+    '<div class="seg" id="sUnit"><button type="button" data-u="mgdl" class="'+(!isMmol()?'on':'')+'">mg/dL</button><button type="button" data-u="mmol" class="'+(isMmol()?'on':'')+'">mmol/L</button></div>'+
+    '<h2>Rango objetivo ('+unitLabel()+')</h2>'+
+    '<div class="two"><label class="fld" style="margin-top:0"><span>Mínimo</span><input id="sLow" inputmode="decimal" value="'+fmtInput(s.low)+'"></label>'+
+    '<label class="fld" style="margin-top:0"><span>Máximo</span><input id="sHigh" inputmode="decimal" value="'+fmtInput(s.high)+'"></label></div>'+
+    '<p class="note l">Acuerda con tu médico el rango que corresponde a tu caso. Se usa para marcar valores y calcular el porcentaje en rango.</p>'+
+    '<h2>Nombre en el PDF (opcional)</h2>'+
+    '<input id="sName" maxlength="60" placeholder="Nombre y apellido" value="'+esc(s.name)+'">'+
+    '<h2>Respaldo de datos</h2>'+
+    '<p class="note l" style="margin:0 0 4px">Tus datos viven solo en este teléfono. Si borras la app o cambias de teléfono se pierden, así que guarda un respaldo de vez en cuando.</p>'+
+    '<button class="btn sec" id="bExp" type="button" style="margin-top:14px">Exportar respaldo</button>'+
+    '<button class="btn sec" id="bImp" type="button">Importar respaldo</button>'+
+    '<input type="file" id="fImp" accept=".json,application/json" hidden>'+
+    '<button class="btn dng" id="bDel" type="button">Borrar todos los datos</button>'+
+    '<h2>Instalar en el iPhone</h2>'+
+    '<ol class="steps"><li>Abre esta página en Safari.</li><li>Toca el botón Compartir.</li><li>Elige «Agregar a inicio».</li></ol>'+
+    '<h2>Aviso</h2>'+
+    '<p class="note l">Esta app es un registro personal. No es un dispositivo médico ni reemplaza las indicaciones de tu equipo de salud.</p>';
+
+  $$('#sUnit button').forEach(b=>b.addEventListener('click',()=>{
+    state.settings.unit=b.dataset.u;save();formReg.reset();sel=-1;renderAjustes();toast('Unidad: '+unitLabel());
+  }));
+  const rng=()=>{
+    const lo=fromDisp(parseNum($('#sLow').value)),hi=fromDisp(parseNum($('#sHigh').value));
+    if(isFinite(lo)&&isFinite(hi)&&lo>=20&&hi<=600&&lo<hi){
+      state.settings.low=Math.round(lo*100)/100;state.settings.high=Math.round(hi*100)/100;save();toast('Rango actualizado');
+    }else{toast('Revisa el rango: el mínimo debe ser menor que el máximo');}
+    $('#sLow').value=fmtInput(state.settings.low);$('#sHigh').value=fmtInput(state.settings.high);
+  };
+  $('#sLow').addEventListener('change',rng);$('#sHigh').addEventListener('change',rng);
+  $('#sName').addEventListener('change',ev=>{state.settings.name=ev.target.value.trim();save();});
+  $('#bExp').addEventListener('click',exportBackup);
+  $('#bImp').addEventListener('click',()=>$('#fImp').click());
+  $('#fImp').addEventListener('change',importBackup);
+  $('#bDel').addEventListener('click',()=>{
+    if(!confirm('Se borrarán todas las mediciones de este teléfono. ¿Continuar?'))return;
+    if(!confirm('Esta acción no se puede deshacer. ¿Borrar de todos modos?'))return;
+    state.entries=[];save();render();toast('Datos borrados');
+  });
+}
+
+/* ───────── entrega de archivos (PDF y respaldo) ───────── */
+async function deliver(blob,name,title,altType){
+  let file=new File([blob],name,{type:blob.type});
+  let can=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+  if(!can&&altType){const f2=new File([blob],name,{type:altType});if(navigator.canShare&&navigator.canShare({files:[f2]})){file=f2;can=true;}}
+  const url=URL.createObjectURL(blob);
+  if(can){
+    try{await navigator.share({files:[file],title:name});return;}
+    catch(err){
+      if(err&&err.name==='AbortError')return;
+      openSheet(root=>{
+        root.innerHTML='<h1>'+esc(title)+'</h1><p class="note l">Listo. Toca para compartir o guardar el archivo.</p>'+
+          '<button class="btn" id="shBtn" type="button">Compartir o guardar</button>'+
+          '<a class="btn sec" href="'+url+'" target="_blank" rel="noopener">Abrir</a>';
+        $('#shBtn',root).addEventListener('click',async()=>{try{await navigator.share({files:[file],title:name});closeSheet();}catch(e2){}});
+      });
+      return;
+    }
+  }
+  const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+function exportBackup(){
+  const data={app:'glucosa',version:1,exportado:new Date().toISOString(),settings:state.settings,entries:state.entries};
+  const d=new Date();
+  deliver(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}),'respaldo-glucosa-'+dstr(d)+'.json','Respaldo de datos','text/plain');
+}
+function importBackup(ev){
+  const f=ev.target.files&&ev.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const j=JSON.parse(rd.result);
+      if(!j||!Array.isArray(j.entries))throw new Error('formato');
+      const have=new Set(state.entries.map(e=>e.id));
+      let add=0;
+      j.entries.forEach(e=>{
+        if(!e||!isFinite(e.t)||!isFinite(e.v))return;
+        const id=e.id&&!have.has(e.id)?String(e.id):uid();
+        if(e.id&&have.has(e.id))return;
+        have.add(id);state.entries.push({id:id,t:+e.t,v:+e.v,ctx:CTXL[e.ctx]?e.ctx:'',note:String(e.note||'').slice(0,120)});add++;
+      });
+      save();render();toast(add===1?'1 medición importada':add+' mediciones importadas');
+    }catch(err){toast('El archivo no es un respaldo válido');}
+    ev.target.value='';
+  };
+  rd.readAsText(f);
+}
+
+/* ───────── exportar mes a PDF ───────── */
+async function exportPdf(){
+  if(!window.jspdf){toast('No se cargó el generador de PDF. Abre la app con conexión una vez.');return;}
+  const ms=monthStart(cursor),me=new Date(ms.getFullYear(),ms.getMonth()+1,1);
+  const list=inRange(ms.getTime(),me.getTime());
+  if(!list.length){toast('No hay mediciones en este mes');return;}
+  const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'});
+  const PW=210,PH=297,M=16,CW=PW-2*M,FG=[20,20,20],MU=[120,120,120],LN=[215,215,215],AC=[179,38,30];
+  const low=state.settings.low,high=state.settings.high,u=unitLabel();
+  const clean=s=>String(s==null?'':s).replace(/[–—]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/…/g,'...').replace(/[^\x20-\x7E -ÿ]/g,'');
+  const txt=(s,x,y,o)=>{o=o||{};doc.setFont('helvetica',o.b?'bold':'normal');doc.setFontSize(o.s||10);doc.setTextColor.apply(doc,o.c||FG);doc.text(clean(s),x,y,{align:o.a||'left'});};
+  const hr=y=>{doc.setDrawColor.apply(doc,LN);doc.setLineWidth(.2);doc.line(M,y,PW-M,y);};
+  const mName=cap(MESES[ms.getMonth()])+' '+ms.getFullYear();
+  let y=M+4;
+
+  txt('Control de glucosa',M,y+2,{s:20,b:1});
+  txt(mName,M,y+10,{s:12,c:MU});
+  if(state.settings.name)txt(state.settings.name,PW-M,y+2,{s:11,a:'right'});
+  txt('Valores en '+u+' · rango objetivo '+fmtV(low)+' a '+fmtV(high),PW-M,y+10,{s:9,c:MU,a:'right'});
+  y+=17;hr(y);y+=8;
+
+  const st=stats(list),pc=x=>Math.round(100*x/st.n)+'%';
+  const cells=[['Mediciones',st.n],['Promedio',fmtV(st.mean)],['Mínimo',fmtV(st.min)],['Máximo',fmtV(st.max)],['Desv. estándar',fmtV(st.sd)],['En rango',pc(st.inr)],['Bajo el rango',pc(st.below)],['Sobre el rango',pc(st.above)]];
+  cells.forEach((c,i)=>{const cx=M+(i%4)*(CW/4),cy=y+Math.floor(i/4)*17;txt(c[0],cx,cy,{s:8,c:MU});txt(String(c[1]),cx,cy+7.5,{s:16});});
+  y+=33;hr(y);y+=7;
+
+  const cv=document.createElement('canvas');
+  drawChart(cv,{mode:'mes',list:list,start:ms,end:me,low:low,high:high,w:900,h:380,dpr:2,fs:13,sc:1.3,bg:'#ffffff',
+    colors:{fg:'#141414',mut:'#757575',line:'#e3e3e3',band:'rgba(0,0,0,0.06)',acc:'#b3261e'},sel:-1});
+  const ch=CW*380/900;
+  doc.addImage(cv.toDataURL('image/png'),'PNG',M,y,CW,ch);y+=ch+3;
+  txt('Cada punto es el promedio del día; la línea vertical va del mínimo al máximo. La franja gris es el rango objetivo.',M,y,{s:8,c:MU});y+=10;
+
+  const foot=20;
+  const ensure=h=>{if(y+h>PH-foot){doc.addPage();y=M+2;return true;}return false;};
+  function table(title,cols,rows){
+    ensure(26);txt(title,M,y,{s:11,b:1});y+=5.5;
+    const head=()=>{let x=M;cols.forEach(c=>{txt(c.h,c.a?x+c.w:x,y,{s:8,c:MU,a:c.a?'right':'left'});x+=c.w;});y+=2;hr(y);y+=4.6;};
+    head();
+    rows.forEach(r=>{
+      if(ensure(6))head();
+      let x=M;cols.forEach((c,i)=>{txt(r.c[i],c.a?x+c.w:x,y,{s:9,c:r.f&&r.f[i]?AC:FG,a:c.a?'right':'left'});x+=c.w;});
+      y+=5.2;
+    });
+    y+=7;
+  }
+
+  const bc=byContext(list);
+  if(bc.length){
+    table('Promedio por momento',[{h:'Momento',w:80},{h:'N.º',w:20,a:1},{h:'Promedio',w:34,a:1},{h:'Mín.',w:22,a:1},{h:'Máx.',w:22,a:1}],
+      bc.map(r=>({c:[r.label,String(r.n),fmtV(r.mean),fmtV(r.min),fmtV(r.max)],f:[0,0,r.mean<low||r.mean>high,r.min<low,r.max>high]})));
+  }
+  table('Resumen diario',[{h:'Día',w:70},{h:'N.º',w:20,a:1},{h:'Promedio',w:30,a:1},{h:'Mín.',w:29,a:1},{h:'Máx.',w:29,a:1}],
+    groupByDay(list).map(d=>({c:[shortDay(d.date),String(d.n),fmtV(d.mean),fmtV(d.min),fmtV(d.max)],f:[0,0,d.mean<low||d.mean>high,d.min<low,d.max>high]})));
+  table('Detalle de mediciones',[{h:'Fecha',w:30},{h:'Hora',w:18},{h:'Valor',w:22,a:1},{h:'',w:8},{h:'Momento',w:40},{h:'Nota',w:60}],
+    list.map(e=>{const d=new Date(e.t),n=clean(e.note||'');return {c:[shortDay(d),hhmm(e.t),fmtV(e.v),'',e.ctx?CTXL[e.ctx]:'',n.length>34?n.slice(0,33)+'...':n],f:[0,0,e.v<low||e.v>high,0,0,0]};}));
+
+  const pages=doc.getNumberOfPages(),gen=new Date();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);hr(PH-14);
+    txt('Generado con Glucosa el '+gen.getDate()+'/'+(gen.getMonth()+1)+'/'+gen.getFullYear()+' · Registro personal, no reemplaza la indicación médica',M,PH-9,{s:7.5,c:MU});
+    txt(i+' / '+pages,PW-M,PH-9,{s:7.5,c:MU,a:'right'});
+  }
+  await deliver(doc.output('blob'),'glucosa-'+ms.getFullYear()+'-'+pad(ms.getMonth()+1)+'.pdf','PDF de '+mName);
+}
+
+/* ───────── navegación y arranque ───────── */
+let view='registrar';
+function render(){({registrar:renderRegistrar,graficos:renderGraficos,historial:renderHistorial,ajustes:renderAjustes})[view]();}
+function show(v){
+  view=v;
+  $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  $$('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  window.scrollTo(0,0);render();
+}
+
+formReg=makeForm($('#formReg'),{submitLabel:'Guardar medición',onSubmit:addEntry});
+$$('nav.tabs button').forEach(b=>b.addEventListener('click',()=>show(b.dataset.v)));
+$$('#gSeg button').forEach(b=>b.addEventListener('click',()=>{gmode=b.dataset.m;clampCursor();sel=-1;renderGraficos();}));
+$('#gPrev').addEventListener('click',()=>shift(-1));
+$('#gNext').addEventListener('click',()=>shift(1));
+$('#btnPdf').addEventListener('click',exportPdf);
+$('#hintX').addEventListener('click',()=>{state.settings.hint=1;save();renderRegistrar();});
+document.addEventListener('click',ev=>{const li=ev.target.closest('.li[data-id]');if(li)openEdit(li.dataset.id);});
+$('#cv').addEventListener('pointerdown',ev=>{
+  if(!lastHits.length)return;
+  const r=ev.currentTarget.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top;
+  let best=-1,bd=Infinity;
+  lastHits.forEach((p,i)=>{const d=gmode==='mes'?Math.abs(p.x-x)*Math.abs(p.x-x):(p.x-x)*(p.x-x)+(p.y-y)*(p.y-y);if(d<bd){bd=d;best=i;}});
+  const lim=gmode==='mes'?18*18:30*30;
+  sel=bd<=lim?best:-1;drawNow();
+});
+window.addEventListener('resize',()=>{if(view==='graficos')drawNow();});
+if(window.matchMedia)matchMedia('(prefers-color-scheme: dark)').addEventListener&&matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(view==='graficos')drawNow();});
+setInterval(()=>{if(view==='registrar')formReg.refresh();},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='registrar')formReg.refresh();});
+
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+render();
+window.__glucosa={state:()=>state,show:show,render:render};
+})();
+</script>
+</body>
+</html>
