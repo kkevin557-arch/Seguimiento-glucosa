@@ -1,6 +1,6 @@
 // Service worker: deja la app disponible sin conexión.
 // Solo guarda en caché los archivos de la propia app; no envía ni recibe datos del usuario.
-const CACHE = 'glucosa-v3';
+const CACHE = 'glucosa-v4';
 const ASSETS = [
   './',
   './index.html',
