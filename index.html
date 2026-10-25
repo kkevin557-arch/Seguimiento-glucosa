@@ -95,6 +95,8 @@ th:first-child,td:first-child{text-align:left}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .steps{font-size:14px;color:var(--mut);padding-left:18px;margin:0}
 .steps li{margin:4px 0}
+details{margin-top:16px}
+details summary{cursor:pointer;color:var(--mut);font-size:14px;margin-bottom:8px}
 
 /* barra inferior */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}
@@ -213,9 +215,9 @@ let state=load();
 function load(){
   try{
     const r=localStorage.getItem(KEY);
-    if(r){const s=JSON.parse(r);return {entries:Array.isArray(s.entries)?s.entries:[],settings:Object.assign({},DEF,s.settings||{})};}
+    if(r){const s=JSON.parse(r);return {entries:Array.isArray(s.entries)?s.entries:[],tomb:(s.tomb&&typeof s.tomb==='object')?s.tomb:{},settings:Object.assign({},DEF,s.settings||{})};}
   }catch(e){}
-  return {entries:[],settings:Object.assign({},DEF)};
+  return {entries:[],tomb:{},settings:Object.assign({},DEF)};
 }
 function save(){
   try{localStorage.setItem(KEY,JSON.stringify(state));return true;}
@@ -446,6 +448,7 @@ const fmtWhen=ts=>{const d=new Date(ts);return d.getDate()+' '+MES3[d.getMonth()
 function backupDue(){
   const s=state.settings,now=Date.now(),DAY=86400000;
   if(!state.entries.length||(s.snooze&&now<s.snooze))return null;
+  const sc=loadSync();if(sc&&sc.on&&sc.last&&now-sc.last<3*DAY)return null;
   const last=s.lastBackup||0,fresh=state.entries.filter(e=>e.t>last).length;
   if(!fresh)return null;
   const ref=last||Math.min(...state.entries.map(e=>e.t));
@@ -480,8 +483,9 @@ function renderRegistrar(){
   }
 }
 function addEntry(d,done){
-  state.entries.push({id:uid(),t:d.t,v:d.v,ctx:d.ctx,note:d.note});
+  state.entries.push({id:uid(),t:d.t,v:d.v,ctx:d.ctx,note:d.note,u:Date.now()});
   if(!save()){state.entries.pop();return;}
+  scheduleSync();
   done();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
   let m='Guardado · '+fmtV(d.v)+' '+unitLabel();
@@ -499,8 +503,8 @@ function openEdit(id){
     root.innerHTML='<h1>Editar medición</h1><div class="ef"></div>';
     makeForm($('.ef',root),{
       entry:e,submitLabel:'Guardar cambios',
-      onSubmit:d=>{const bak=Object.assign({},e);Object.assign(e,d);if(!save()){Object.assign(e,bak);return;}closeSheet();render();toast('Medición actualizada');},
-      onDelete:()=>{if(confirm('¿Eliminar esta medición?')){state.entries=state.entries.filter(x=>x.id!==id);save();closeSheet();render();toast('Medición eliminada');}}
+      onSubmit:d=>{const bak=Object.assign({},e);Object.assign(e,d,{u:Date.now()});if(!save()){Object.assign(e,bak);return;}scheduleSync();closeSheet();render();toast('Medición actualizada');},
+      onDelete:()=>{if(confirm('¿Eliminar esta medición?')){state.entries=state.entries.filter(x=>x.id!==id);state.tomb[id]=Date.now();save();scheduleSync();closeSheet();render();toast('Medición eliminada');}}
     });
   });
 }
@@ -628,6 +632,7 @@ function renderAjustes(){
     '<button class="btn sec" id="bImp" type="button">Importar respaldo</button>'+
     '<input type="file" id="fImp" accept=".json,application/json" hidden>'+
     '<button class="btn dng" id="bDel" type="button">Borrar todos los datos</button>'+
+    syncUI()+
     '<h2>Instalar en el iPhone</h2>'+
     '<ol class="steps"><li>Abre esta página en Safari.</li><li>Toca el botón Compartir.</li><li>Elige «Agregar a inicio».</li></ol>'+
     '<h2>Aviso</h2>'+
@@ -660,12 +665,26 @@ function renderAjustes(){
   }catch(e){}
   $('#bXls').addEventListener('click',()=>exportExcel('todo'));
   $('#bExp').addEventListener('click',exportBackup);
+  const syOn=$('#syOn');
+  if(syOn)syOn.addEventListener('click',()=>activateSync($('#syRepo').value,$('#syTok').value,$('#syPass').value,$('#syPass2').value,syOn));
+  const syNow=$('#syNow');
+  if(syNow)syNow.addEventListener('click',async()=>{
+    toast('Sincronizando…',1200);
+    const ok=await syncNow(true),c=loadSync();
+    toast(ok?'Sincronizado con GitHub':(c&&c.err)||'No se pudo sincronizar',3500);
+  });
+  const syOff=$('#syOff');
+  if(syOff)syOff.addEventListener('click',()=>{
+    if(!confirm('Se quitará el token de este teléfono y dejará de sincronizar. Los datos que ya están en GitHub no se borran. ¿Continuar?'))return;
+    saveSync(null);renderAjustes();toast('Respaldo en GitHub desactivado');
+  });
   $('#bImp').addEventListener('click',()=>$('#fImp').click());
   $('#fImp').addEventListener('change',importBackup);
   $('#bDel').addEventListener('click',()=>{
-    if(!confirm('Se borrarán todas las mediciones de este teléfono. ¿Continuar?'))return;
+    if(!confirm('Se borrarán todas las mediciones de este teléfono'+(loadSync()?' y también las de GitHub en la próxima sincronización':'')+'. ¿Continuar?'))return;
     if(!confirm('Esta acción no se puede deshacer. ¿Borrar de todos modos?'))return;
-    state.entries=[];save();render();toast('Datos borrados');
+    const nowT=Date.now();state.entries.forEach(e=>{state.tomb[e.id]=nowT;});
+    state.entries=[];save();scheduleSync();render();toast('Datos borrados');
   });
 }
 
@@ -693,7 +712,7 @@ async function deliver(blob,name,title,altType,onOk){
   setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 function exportBackup(){
-  const data={app:'glucosa',version:1,exportado:new Date().toISOString(),settings:state.settings,entries:state.entries};
+  const data={app:'glucosa',version:1,exportado:new Date().toISOString(),settings:state.settings,entries:state.entries,tomb:state.tomb};
   const d=new Date();
   deliver(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}),'respaldo-glucosa-'+dstr(d)+'.json','Respaldo de datos','text/plain',()=>{state.settings.lastBackup=Date.now();state.settings.snooze=0;save();render();});
 }
@@ -718,13 +737,231 @@ function importBackup(ev){
         if(!e||!isFinite(e.t)||!isFinite(e.v))return;
         const id=e.id&&!have.has(e.id)?String(e.id):uid();
         if(e.id&&have.has(e.id))return;
-        have.add(id);state.entries.push({id:id,t:+e.t,v:+e.v,ctx:CTXL[e.ctx]?e.ctx:'',note:String(e.note||'').slice(0,120)});add++;
+        let u=+e.u||0;if(state.tomb[id]!==undefined){delete state.tomb[id];u=Date.now();}
+        have.add(id);state.entries.push({id:id,t:+e.t,v:+e.v,ctx:CTXL[e.ctx]?e.ctx:'',note:String(e.note||'').slice(0,120),u:u});add++;
       });
-      save();applyTheme();render();toast(add===1?'1 medición importada':add+' mediciones importadas');
+      save();scheduleSync();applyTheme();render();toast(add===1?'1 medición importada':add+' mediciones importadas');
     }catch(err){toast('El archivo no es un respaldo válido');}
     ev.target.value='';
   };
   rd.readAsText(f);
+}
+
+/* ───────── respaldo cifrado en GitHub (opcional) ─────────
+   Las mediciones se cifran en el teléfono (AES-256-GCM, clave derivada de la contraseña con PBKDF2)
+   y se suben como un único archivo ilegible a un repositorio del usuario. La configuración de la
+   sincronización (token y clave) vive en su propia clave de almacenamiento y nunca entra en los respaldos. */
+const SYNC_KEY='glucosa.sync.v1',SYNC_FILE='glucosa-datos.json',KDF_ITER=250000,SETK=['unit','low','high','name','theme'];
+function loadSync(){try{const r=localStorage.getItem(SYNC_KEY);return r?JSON.parse(r):null;}catch(e){return null;}}
+function saveSync(c){try{if(c)localStorage.setItem(SYNC_KEY,JSON.stringify(c));else localStorage.removeItem(SYNC_KEY);}catch(e){}}
+const b64e=u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s);};
+const b64d=b=>{const s=atob(String(b).replace(/\s/g,'')),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;};
+const hasCrypto=()=>!!(window.crypto&&crypto.subtle);
+async function kdf(pass,salt){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(pass).normalize('NFC')),'PBKDF2',false,['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:salt,iterations:KDF_ITER,hash:'SHA-256'},km,256));
+}
+const aesKey=raw=>crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']);
+async function encFile(c,payload){
+  const key=await aesKey(b64d(c.key)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,new TextEncoder().encode(JSON.stringify(payload))));
+  return JSON.stringify({app:'glucosa',v:1,kdf:'PBKDF2-SHA256',iter:KDF_ITER,salt:c.salt,iv:b64e(iv),data:b64e(ct)});
+}
+async function decFile(text,raw){
+  const f=JSON.parse(text),key=await aesKey(raw);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(f.iv)},key,b64d(f.data));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+/* contenido que se sincroniza y combinación de copias (nunca una pisa a la otra) */
+const cleanE=e=>({id:String(e.id),t:+e.t,v:+e.v,ctx:CTXL[e.ctx]?e.ctx:'',note:String(e.note||'').slice(0,120),u:+e.u||0});
+function localPayload(){
+  const s={};SETK.forEach(k=>{s[k]=state.settings[k];});
+  return {entries:state.entries.map(cleanE),tomb:state.tomb,settings:s};
+}
+function canon(p){
+  const es=(p.entries||[]).map(cleanE).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0).map(e=>[e.id,e.t,e.v,e.ctx,e.note,e.u]);
+  const tb=Object.keys(p.tomb||{}).sort().map(k=>[k,+p.tomb[k]]);
+  return JSON.stringify([es,tb]);
+}
+function mergeRemote(r){
+  const tomb=Object.assign({},state.tomb);
+  Object.keys(r.tomb||{}).forEach(id=>{const a=+r.tomb[id];if(isFinite(a)&&!(tomb[id]>=a))tomb[id]=a;});
+  const m=new Map();
+  const take=(x,loc)=>{
+    if(!x||x.id==null||!isFinite(x.t)||!isFinite(x.v))return;
+    const u=+x.u||0,id=String(x.id),c=m.get(id);
+    if(!c||u>c.u)m.set(id,{u:u,o:loc?x:cleanE(x)});
+  };
+  state.entries.forEach(x=>take(x,true));(r.entries||[]).forEach(x=>take(x,false));
+  const out=[];
+  m.forEach((c,id)=>{if(tomb[id]!==undefined&&tomb[id]>=c.u)return;out.push(c.o);});
+  state.entries=out;state.tomb=tomb;
+}
+function applyRemoteSettings(q){
+  if(!q||typeof q!=='object')return;
+  if(q.unit==='mgdl'||q.unit==='mmol')state.settings.unit=q.unit;
+  if(isFinite(q.low)&&isFinite(q.high)&&q.low>=20&&q.high<=600&&q.low<q.high){state.settings.low=+q.low;state.settings.high=+q.high;}
+  if(typeof q.name==='string')state.settings.name=q.name.slice(0,60);
+  if(q.theme==='light'||q.theme==='dark'||q.theme==='auto')state.settings.theme=q.theme;
+}
+
+/* API de GitHub */
+const ghH=(c,extra)=>Object.assign({Authorization:'Bearer '+c.token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},extra||{});
+const ghFile=c=>'https://api.github.com/repos/'+c.repo+'/contents/'+SYNC_FILE;
+async function ghRepo(c){
+  const r=await fetch('https://api.github.com/repos/'+c.repo,{headers:ghH(c),cache:'no-store'});
+  if(!r.ok)throw {status:r.status};
+  return r.json();
+}
+async function ghGet(c){
+  const r=await fetch(ghFile(c),{headers:ghH(c),cache:'no-store'});
+  if(r.status===404)return null;
+  if(!r.ok)throw {status:r.status};
+  const j=await r.json();
+  let text=j.content?atob(String(j.content).replace(/\s/g,'')):null;
+  if(text===null){
+    const r2=await fetch(ghFile(c),{headers:ghH(c,{Accept:'application/vnd.github.raw+json'}),cache:'no-store'});
+    if(!r2.ok)throw {status:r2.status};
+    text=await r2.text();
+  }
+  return {sha:j.sha,text:text};
+}
+async function ghPut(c,text,sha){
+  const body={message:'Respaldo cifrado',content:btoa(text)};
+  if(sha)body.sha=sha;
+  const r=await fetch(ghFile(c),{method:'PUT',headers:ghH(c,{'Content-Type':'application/json'}),body:JSON.stringify(body)});
+  if(!r.ok)throw {status:r.status};
+  return true;
+}
+function syncMsg(e){
+  if(e&&e.code==='offline')return 'Sin conexión; se subirá cuando vuelva';
+  if(e&&e.code==='pass')return 'Contraseña incorrecta, o el archivo del repositorio está dañado';
+  if(e&&e.code==='nocrypto')return 'Este navegador no permite cifrar';
+  const s=e&&e.status;
+  if(s===401)return 'El token no es válido o ya venció';
+  if(s===403)return 'El token no tiene permiso para escribir (necesita «Contents: Read and write») o se alcanzó el límite de GitHub';
+  if(s===404)return 'No se encontró el repositorio, o el token no tiene acceso a él';
+  if(s===409||s===422)return 'Conflicto al guardar; se reintentará';
+  if(e instanceof TypeError)return 'Sin conexión; se subirá cuando vuelva';
+  return 'No se pudo sincronizar';
+}
+const isOfflineErr=e=>!!e&&(e.code==='offline'||e instanceof TypeError);
+
+/* sincronización */
+let syncBusy=false,syncAgain=false,syncTimer=0,syncLastTry=0;
+function scheduleSync(){const c=loadSync();if(!c||!c.on)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1500);}
+function showSync(t){const el=$('#syncStatus');if(el)el.textContent=t;}
+function syncText(c){
+  if(syncBusy)return 'Sincronizando…';
+  if(!c)return '';
+  if(c.err)return (c.last?'Última sincronización: '+fmtWhen(c.last)+'. ':'')+c.err+'.';
+  return c.last?'Sincronizado: '+fmtWhen(c.last)+'.':'Pendiente de sincronizar.';
+}
+async function syncNow(quiet){
+  const c0=loadSync();
+  if(!c0||!c0.on)return false;
+  if(syncBusy){syncAgain=true;return false;}
+  syncBusy=true;syncLastTry=Date.now();showSync('Sincronizando…');
+  const c=c0;let ok=false;
+  try{
+    if(!hasCrypto())throw {code:'nocrypto'};
+    if(navigator.onLine===false)throw {code:'offline'};
+    const raw=b64d(c.key);
+    for(let n=0;n<3;n++){
+      const rem=await ghGet(c);
+      let remP=null;
+      if(rem){try{remP=await decFile(rem.text,raw);}catch(e){throw {code:'pass'};}}
+      if(remP)mergeRemote(remP);
+      const mine=localPayload();
+      if(!remP||canon(mine)!==canon(remP)){
+        const text=await encFile(c,mine);
+        try{await ghPut(c,text,rem&&rem.sha);}
+        catch(e){if((e.status===409||e.status===422)&&n<2)continue;throw e;}
+      }
+      break;
+    }
+    save();
+    if(view!=='ajustes')render();
+    c.last=Date.now();c.err='';ok=true;
+  }catch(e){
+    const msg=syncMsg(e);
+    if(!quiet&&!isOfflineErr(e)&&msg!==c.err)toast('GitHub: '+msg,4500);
+    c.err=msg;
+  }finally{
+    const cur=loadSync();
+    if(cur&&cur.on){cur.last=c.last;cur.err=c.err;saveSync(cur);}
+    syncBusy=false;showSync(syncText(loadSync()));
+    if(syncAgain){syncAgain=false;setTimeout(syncNow,300);}
+  }
+  return ok;
+}
+
+/* activar o restaurar */
+async function activateSync(repo,token,pass,pass2,btn){
+  repo=String(repo).trim().replace(/^https?:\/\/github\.com\//i,'').replace(/\.git$/i,'').replace(/\/+$/,'');
+  token=String(token).trim();
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Escribe el repositorio como usuario/nombre');return;}
+  if(!token){toast('Pega el token de GitHub');return;}
+  if(pass.length<8){toast('La contraseña debe tener al menos 8 caracteres');return;}
+  if(!hasCrypto()){toast('Este navegador no permite cifrar');return;}
+  if(navigator.onLine===false){toast('Necesitas conexión a internet para activar');return;}
+  const c={on:true,repo:repo,token:token,key:'',salt:'',last:0,err:''};
+  const label=btn.textContent;btn.disabled=true;btn.textContent='Conectando…';
+  try{
+    const info=await ghRepo(c);
+    if(info.permissions&&info.permissions.push===false)throw {status:403};
+    if(info.private===false&&!confirm('Este repositorio es PÚBLICO: cualquiera podría descargar el archivo cifrado. Se recomienda usar uno privado. ¿Continuar de todos modos?'))return;
+    const rem=await ghGet(c);
+    let raw,salt,remP=null;
+    if(rem){
+      try{salt=JSON.parse(rem.text).salt;raw=await kdf(pass,b64d(salt));remP=await decFile(rem.text,raw);}
+      catch(e){throw {code:'pass'};}
+    }else{
+      if(pass!==pass2){toast('Las contraseñas no coinciden');return;}
+      if(!confirm('Si olvidas esta contraseña, los datos guardados en GitHub no se podrán recuperar. ¿Ya la anotaste en un lugar seguro?'))return;
+      const sb=crypto.getRandomValues(new Uint8Array(16));
+      salt=b64e(sb);raw=await kdf(pass,sb);
+    }
+    c.key=b64e(raw);c.salt=salt;
+    if(remP&&!state.entries.length){applyRemoteSettings(remP.settings);applyTheme();}
+    saveSync(c);
+    await syncNow(true);
+    const after=loadSync();
+    if(!after||!after.last){
+      const m=(after&&after.err)||'No se pudo sincronizar';
+      saveSync(null);toast('No se activó: '+m,6000);return;
+    }
+    toast(rem?'Listo: datos restaurados y sincronizados':'Respaldo automático activado',3500);
+  }catch(e){
+    toast(syncMsg(e),6000);
+  }finally{
+    if(loadSync())renderAjustes();else{btn.disabled=false;btn.textContent=label;}
+  }
+}
+function syncUI(){
+  const c=loadSync();
+  if(c&&c.on){
+    return '<h2>Respaldo automático en GitHub</h2>'+
+      '<p class="note l" style="margin:0">Repositorio: '+esc(c.repo)+'. Tus mediciones se suben cifradas cada vez que guardas una.</p>'+
+      '<p class="note l" id="syncStatus" style="margin:6px 0 0">'+esc(syncText(c))+'</p>'+
+      '<button class="btn sec" id="syNow" type="button" style="margin-top:14px">Sincronizar ahora</button>'+
+      '<button class="btn dng" id="syOff" type="button">Desactivar y quitar el token de este teléfono</button>';
+  }
+  return '<h2>Respaldo automático en GitHub (opcional)</h2>'+
+    '<p class="note l" style="margin:0 0 4px">Copia cifrada de tus mediciones en un repositorio privado tuyo, para recuperarlas si se borran los datos del teléfono. La contraseña de cifrado nunca sale del teléfono.</p>'+
+    '<label class="fld"><span>Repositorio (usuario/nombre)</span><input id="syRepo" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="usuario/glucosa-datos"></label>'+
+    '<label class="fld"><span>Token de GitHub</span><input id="syTok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>'+
+    '<label class="fld"><span>Contraseña de cifrado</span><input id="syPass" type="password" autocomplete="off"></label>'+
+    '<label class="fld"><span>Repetir contraseña (solo la primera vez)</span><input id="syPass2" type="password" autocomplete="off"></label>'+
+    '<button class="btn" id="syOn" type="button">Activar o restaurar</button>'+
+    '<p class="note l">Si olvidas la contraseña, los datos de GitHub no se pueden recuperar. Para restaurar en un teléfono nuevo, usa el mismo repositorio, token y contraseña.</p>'+
+    '<details><summary>Cómo obtener el repositorio y el token</summary><ol class="steps">'+
+    '<li>En GitHub, crea un repositorio nuevo, privado y con un archivo README (por ejemplo «glucosa-datos»).</li>'+
+    '<li>Entra a Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token.</li>'+
+    '<li>En «Repository access» elige «Only select repositories» y marca solo ese repositorio.</li>'+
+    '<li>En «Repository permissions» pon Contents en «Read and write».</li>'+
+    '<li>Genera el token, cópialo y pégalo aquí. GitHub lo muestra una sola vez.</li></ol></details>';
 }
 
 /* ───────── exportar a Excel (.xlsx, sin librerías externas) ───────── */
@@ -949,6 +1186,9 @@ if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
 applyTheme();
 render();
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
+{const sc0=loadSync();if(sc0&&sc0.on)setTimeout(syncNow,800);}
+window.addEventListener('online',scheduleSync);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-syncLastTry>120000)scheduleSync();});
 window.__glucosa={state:()=>state,show:show,render:render};
 })();
 </script>
